@@ -10,15 +10,15 @@ import { Shield, Heart, Smile, Lock, Users, Mail, Eye, EyeOff } from 'lucide-rea
 import { useToast } from '@/hooks/use-toast';
 
 const AuthPage: React.FC = () => {
-  const { signIn, signUp, signInWithGoogle, isConfigured } = useAuth();
+  const { signIn, signUp, signInWithGoogle, isConfigured, configError } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
+
   // Signup form
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
@@ -29,25 +29,25 @@ const AuthPage: React.FC = () => {
     e.preventDefault();
     if (!isConfigured) {
       toast({
-        title: "Firebase not configured",
-        description: "Please add your Firebase configuration to continue.",
-        variant: "destructive",
+        title: 'Firebase setup issue',
+        description: configError || 'Please add your Firebase configuration to continue.',
+        variant: 'destructive',
       });
       return;
     }
-    
+
     setLoading(true);
     try {
       await signIn(loginEmail, loginPassword);
       toast({
-        title: "Welcome back!",
+        title: 'Welcome back!',
         description: "You've successfully signed in.",
       });
     } catch (error: any) {
       toast({
-        title: "Sign in failed",
-        description: error.message || "Please check your credentials.",
-        variant: "destructive",
+        title: 'Sign in failed',
+        description: error.message || 'Please check your credentials.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -58,9 +58,9 @@ const AuthPage: React.FC = () => {
     e.preventDefault();
     if (!isConfigured) {
       toast({
-        title: "Firebase not configured",
-        description: "Please add your Firebase configuration to continue.",
-        variant: "destructive",
+        title: 'Firebase setup issue',
+        description: configError || 'Please add your Firebase configuration to continue.',
+        variant: 'destructive',
       });
       return;
     }
@@ -68,33 +68,33 @@ const AuthPage: React.FC = () => {
     if (signupPassword !== signupConfirmPassword) {
       toast({
         title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-        variant: "destructive",
+        description: 'Please make sure your passwords match.',
+        variant: 'destructive',
       });
       return;
     }
 
     if (signupPassword.length < 6) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters.",
-        variant: "destructive",
+        title: 'Password too short',
+        description: 'Password must be at least 6 characters.',
+        variant: 'destructive',
       });
       return;
     }
-    
+
     setLoading(true);
     try {
       await signUp(signupEmail, signupPassword, signupName);
       toast({
-        title: "Account created!",
+        title: 'Account created!',
         description: "Welcome to Serene. Let's make your experience safe and healthy.",
       });
     } catch (error: any) {
       toast({
-        title: "Sign up failed",
-        description: error.message || "Please try again.",
-        variant: "destructive",
+        title: 'Sign up failed',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -104,25 +104,25 @@ const AuthPage: React.FC = () => {
   const handleGoogleSignIn = async () => {
     if (!isConfigured) {
       toast({
-        title: "Firebase not configured",
-        description: "Please add your Firebase configuration to continue.",
-        variant: "destructive",
+        title: 'Firebase setup issue',
+        description: configError || 'Please add your Firebase configuration to continue.',
+        variant: 'destructive',
       });
       return;
     }
-    
+
     setLoading(true);
     try {
       await signInWithGoogle();
       toast({
-        title: "Welcome!",
+        title: 'Welcome!',
         description: "You've successfully signed in with Google.",
       });
     } catch (error: any) {
       toast({
-        title: "Google sign in failed",
-        description: error.message || "Please try again.",
-        variant: "destructive",
+        title: 'Google sign in failed',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -130,10 +130,10 @@ const AuthPage: React.FC = () => {
   };
 
   const features = [
-    { icon: Shield, title: "Privacy First", description: "Your data stays yours" },
-    { icon: Heart, title: "Mental Health", description: "Built-in wellbeing support" },
-    { icon: Smile, title: "Toxicity Free", description: "AI-powered safety" },
-    { icon: Lock, title: "Safe Space", description: "Child protection modes" },
+    { icon: Shield, title: 'Privacy First', description: 'Your data stays yours' },
+    { icon: Heart, title: 'Mental Health', description: 'Built-in wellbeing support' },
+    { icon: Smile, title: 'Toxicity Free', description: 'AI-powered safety' },
+    { icon: Lock, title: 'Safe Space', description: 'Child protection modes' },
   ];
 
   return (
@@ -153,18 +153,18 @@ const AuthPage: React.FC = () => {
               </div>
               <h1 className="text-3xl font-bold text-foreground">Serene</h1>
             </div>
-            
+
             <h2 className="text-4xl font-bold leading-tight text-foreground">
               Connect mindfully.
               <br />
               <span className="text-primary">Chat safely.</span>
             </h2>
-            
+
             <p className="text-lg text-muted-foreground max-w-md">
-              A social platform designed for your wellbeing. No addiction loops, 
-              no toxicity, no fake news — just meaningful connections.
+              A social platform designed for your wellbeing. No addiction loops, no toxicity, no fake
+              news — just meaningful connections.
             </p>
-            
+
             <div className="grid grid-cols-2 gap-4 pt-4">
               {features.map((feature, index) => (
                 <motion.div
@@ -203,13 +203,14 @@ const AuthPage: React.FC = () => {
               </div>
               <CardTitle className="text-2xl">Welcome</CardTitle>
               <CardDescription>
-                {isConfigured 
-                  ? "Sign in to your account or create a new one"
-                  : "Configure Firebase to get started"
-                }
+                {isConfigured
+                  ? 'Sign in to your account or create a new one'
+                  : configError
+                    ? 'Fix your Firebase configuration to continue'
+                    : 'Configure Firebase to get started'}
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent>
               {!isConfigured && (
                 <div className="mb-6 p-4 rounded-lg bg-warning/10 border border-warning/20">
@@ -217,9 +218,9 @@ const AuthPage: React.FC = () => {
                     Firebase Configuration Required
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Add your Firebase config as environment variables:
-                    VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, 
-                    VITE_FIREBASE_DATABASE_URL, VITE_FIREBASE_PROJECT_ID, etc.
+                    {configError
+                      ? configError
+                      : 'Add your Firebase config as environment variables: VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_DATABASE_URL, VITE_FIREBASE_PROJECT_ID, etc.'}
                   </p>
                 </div>
               )}
@@ -229,7 +230,7 @@ const AuthPage: React.FC = () => {
                   <TabsTrigger value="login">Sign In</TabsTrigger>
                   <TabsTrigger value="signup">Sign Up</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="login">
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
@@ -247,14 +248,14 @@ const AuthPage: React.FC = () => {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="login-password">Password</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="login-password"
-                          type={showPassword ? "text" : "password"}
+                          type={showPassword ? 'text' : 'password'}
                           placeholder="••••••••"
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
@@ -266,17 +267,21 @@ const AuthPage: React.FC = () => {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>
-                    
+
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? "Signing in..." : "Sign In"}
+                      {loading ? 'Signing in...' : 'Sign In'}
                     </Button>
                   </form>
                 </TabsContent>
-                
+
                 <TabsContent value="signup">
                   <form onSubmit={handleSignup} className="space-y-4">
                     <div className="space-y-2">
@@ -290,7 +295,7 @@ const AuthPage: React.FC = () => {
                         required
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="signup-email">Email</Label>
                       <div className="relative">
@@ -306,14 +311,14 @@ const AuthPage: React.FC = () => {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="signup-password"
-                          type={showPassword ? "text" : "password"}
+                          type={showPassword ? 'text' : 'password'}
                           placeholder="At least 6 characters"
                           value={signupPassword}
                           onChange={(e) => setSignupPassword(e.target.value)}
@@ -325,11 +330,15 @@ const AuthPage: React.FC = () => {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="signup-confirm">Confirm Password</Label>
                       <Input
@@ -341,14 +350,14 @@ const AuthPage: React.FC = () => {
                         required
                       />
                     </div>
-                    
+
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? "Creating account..." : "Create Account"}
+                      {loading ? 'Creating account...' : 'Create Account'}
                     </Button>
                   </form>
                 </TabsContent>
               </Tabs>
-              
+
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border" />
@@ -357,7 +366,7 @@ const AuthPage: React.FC = () => {
                   <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
                 </div>
               </div>
-              
+
               <Button
                 variant="outline"
                 className="w-full"
@@ -384,7 +393,7 @@ const AuthPage: React.FC = () => {
                 </svg>
                 Google
               </Button>
-              
+
               <p className="text-center text-xs text-muted-foreground mt-6">
                 By signing up, you agree to use this platform mindfully and respectfully.
               </p>

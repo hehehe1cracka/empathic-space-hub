@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { ref, set, onValue } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { ref, set } from 'firebase/database';
+import { getFirebaseDatabase } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,17 +36,19 @@ export const WellbeingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Track session time
   useEffect(() => {
     if (user && isConfigured) {
+      const database = getFirebaseDatabase();
+
       setSessionStartTime(Date.now());
-      
+
       // Update usage every minute
       const interval = setInterval(() => {
         setTodayUsage((prev) => {
           const newUsage = prev + 1;
-          
+
           // Save to database
           const usageRef = ref(database, `users/${user.uid}/todayUsage`);
           set(usageRef, newUsage);
-          
+
           return newUsage;
         });
       }, 60000); // Every minute
@@ -69,14 +71,15 @@ export const WellbeingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const checkInterval = setInterval(() => {
         const sessionDuration = (Date.now() - sessionStartTime) / 60000; // in minutes
         const timeSinceLastReminder = (Date.now() - lastBreakReminder) / 60000;
-        
+
         if (sessionDuration >= 30 && timeSinceLastReminder >= 30) {
           setShowBreakReminder(true);
           setLastBreakReminder(Date.now());
-          
+
           toast({
-            title: "Time for a break! 🌿",
-            description: "You've been chatting for 30 minutes. Consider taking a short break to stretch or breathe.",
+            title: 'Time for a break! 🌿',
+            description:
+              "You've been chatting for 30 minutes. Consider taking a short break to stretch or breathe.",
             duration: 10000,
           });
         }
@@ -92,9 +95,9 @@ export const WellbeingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (isLimitReached && isConfigured) {
       toast({
-        title: "Daily limit reached",
+        title: 'Daily limit reached',
         description: "You've reached your daily usage limit. Consider taking a break until tomorrow.",
-        variant: "destructive",
+        variant: 'destructive',
         duration: 15000,
       });
     }
@@ -106,6 +109,8 @@ export const WellbeingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const resetDailyUsage = useCallback(async () => {
     if (user && isConfigured) {
+      const database = getFirebaseDatabase();
+
       setTodayUsage(0);
       const usageRef = ref(database, `users/${user.uid}/todayUsage`);
       await set(usageRef, 0);

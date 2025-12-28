@@ -11,7 +11,7 @@ import {
   limitToLast,
   remove,
 } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { getFirebaseDatabase } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyzeEmotion, detectToxicity } from '@/lib/ai';
 
@@ -50,6 +50,8 @@ export const useChat = (chatId: string | null) => {
       setLoading(false);
       return;
     }
+
+    const database = getFirebaseDatabase();
 
     const messagesRef = query(
       ref(database, `chats/${chatId}/messages`),
@@ -92,13 +94,26 @@ export const useChat = (chatId: string | null) => {
     };
   }, [chatId, user]);
 
+  const setTypingStatus = useCallback(
+    async (typing: boolean) => {
+      if (!chatId || !user) return;
+
+      const database = getFirebaseDatabase();
+      const typingRef = ref(database, `chats/${chatId}/typing/${user.uid}`);
+      await set(typingRef, typing);
+    },
+    [chatId, user]
+  );
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!chatId || !user || !userProfile || !text.trim()) return;
 
+      const database = getFirebaseDatabase();
+
       // Analyze message for toxicity
       const toxicityResult = await detectToxicity(text);
-      
+
       if (toxicityResult.isToxic) {
         throw new Error('This message contains harmful content. Please rephrase it kindly.');
       }
@@ -108,7 +123,7 @@ export const useChat = (chatId: string | null) => {
 
       const messagesRef = ref(database, `chats/${chatId}/messages`);
       const newMessageRef = push(messagesRef);
-      
+
       const message: Omit<Message, 'id'> = {
         senderId: user.uid,
         senderName: userProfile.displayName || 'User',
@@ -131,27 +146,18 @@ export const useChat = (chatId: string | null) => {
 
       return emotion;
     },
-    [chatId, user, userProfile]
+    [chatId, user, userProfile, setTypingStatus]
   );
 
   const deleteMessage = useCallback(
     async (messageId: string) => {
       if (!chatId || !user) return;
 
+      const database = getFirebaseDatabase();
       const messageDeletedRef = ref(database, `chats/${chatId}/messages/${messageId}/isDeleted`);
       const messageDeletedAtRef = ref(database, `chats/${chatId}/messages/${messageId}/deletedAt`);
       await set(messageDeletedRef, true);
       await set(messageDeletedAtRef, Date.now());
-    },
-    [chatId, user]
-  );
-
-  const setTypingStatus = useCallback(
-    async (typing: boolean) => {
-      if (!chatId || !user) return;
-
-      const typingRef = ref(database, `chats/${chatId}/typing/${user.uid}`);
-      await set(typingRef, typing);
     },
     [chatId, user]
   );
@@ -177,8 +183,9 @@ export const useChats = () => {
       return;
     }
 
+    const database = getFirebaseDatabase();
     const userChatsRef = ref(database, `userChats/${user.uid}`);
-    
+
     onValue(userChatsRef, async (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -186,13 +193,17 @@ export const useChats = () => {
         const chatPromises = chatIds.map(async (chatId) => {
           const chatRef = ref(database, `chats/${chatId}`);
           return new Promise<Chat | null>((resolve) => {
-            onValue(chatRef, (chatSnapshot) => {
-              if (chatSnapshot.exists()) {
-                resolve({ id: chatId, ...chatSnapshot.val() } as Chat);
-              } else {
-                resolve(null);
-              }
-            }, { onlyOnce: true });
+            onValue(
+              chatRef,
+              (chatSnapshot) => {
+                if (chatSnapshot.exists()) {
+                  resolve({ id: chatId, ...chatSnapshot.val() } as Chat);
+                } else {
+                  resolve(null);
+                }
+              },
+              { onlyOnce: true }
+            );
           });
         });
 
@@ -210,6 +221,8 @@ export const useChats = () => {
   const createChat = useCallback(
     async (participantId: string, participantName: string) => {
       if (!user) return null;
+
+      const database = getFirebaseDatabase();
 
       // Check if chat already exists
       const existingChat = chats.find(
@@ -251,6 +264,7 @@ export const useChats = () => {
     async (participantIds: string[], groupName: string, participantNames: Record<string, string>) => {
       if (!user) return null;
 
+      const database = getFirebaseDatabase();
       const chatsRef = ref(database, 'chats');
       const newChatRef = push(chatsRef);
       const chatId = newChatRef.key!;
