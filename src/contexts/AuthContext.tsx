@@ -8,8 +8,13 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from 'firebase/auth';
-import { ref, set, onValue, off, serverTimestamp, onDisconnect } from 'firebase/database';
-import { auth, database, googleProvider, isFirebaseConfigured } from '@/lib/firebase';
+import { ref, set, onValue, serverTimestamp, onDisconnect } from 'firebase/database';
+import {
+  getFirebaseServices,
+  googleProvider,
+  isFirebaseConfigured,
+  getFirebaseInitError,
+} from '@/lib/firebase';
 
 interface UserProfile {
   uid: string;
@@ -29,6 +34,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   isConfigured: boolean;
+  configError: string | null;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -50,31 +56,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const isConfigured = isFirebaseConfigured();
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  const envConfigured = isFirebaseConfigured();
+  const isConfigured = envConfigured && !configError;
 
   useEffect(() => {
-    if (!isConfigured) {
+    if (!envConfigured) {
+      setConfigError(null);
       setLoading(false);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      
-      if (user) {
+    let auth: ReturnType<typeof getFirebaseServices>['auth'];
+    let database: ReturnType<typeof getFirebaseServices>['database'];
+
+    try {
+      ({ auth, database } = getFirebaseServices());
+      setConfigError(null);
+    } catch (e: any) {
+      setConfigError(getFirebaseInitError() || e?.message || 'Firebase failed to initialize.');
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setUser(fbUser);
+
+      if (fbUser) {
         // Set up presence system
-        const userStatusRef = ref(database, `users/${user.uid}/status`);
-        const userLastSeenRef = ref(database, `users/${user.uid}/lastSeen`);
-        
+        const userStatusRef = ref(database, `users/${fbUser.uid}/status`);
+        const userLastSeenRef = ref(database, `users/${fbUser.uid}/lastSeen`);
+
         // Set online status
         await set(userStatusRef, 'online');
-        
+
         // Set up disconnect handler
         onDisconnect(userStatusRef).set('offline');
         onDisconnect(userLastSeenRef).set(serverTimestamp());
-        
+
         // Listen for user profile changes
-        const userRef = ref(database, `users/${user.uid}`);
+        const userRef = ref(database, `users/${fbUser.uid}`);
         onValue(userRef, (snapshot) => {
           if (snapshot.exists()) {
             setUserProfile(snapshot.val() as UserProfile);
@@ -83,17 +105,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setUserProfile(null);
       }
-      
+
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isConfigured]);
+  }, [envConfigured]);
 
   const signUp = async (email: string, password: string, displayName: string) => {
+    const { auth, database } = getFirebaseServices();
+
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(user, { displayName });
-    
+
     // Create user profile in RTDB
     const userRef = ref(database, `users/${user.uid}`);
     await set(userRef, {
@@ -111,33 +135,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
+    const { auth } = getFirebaseServices();
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const signInWithGoogle = async () => {
+    const { auth, database } = getFirebaseServices();
+
     const { user } = await signInWithPopup(auth, googleProvider);
-    
+
     // Check if user profile exists, if not create one
     const userRef = ref(database, `users/${user.uid}`);
-    onValue(userRef, async (snapshot) => {
-      if (!snapshot.exists()) {
-        await set(userRef, {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          status: 'online',
-          lastSeen: null,
-          createdAt: Date.now(),
-          safetyMode: false,
-          dailyUsageLimit: 120,
-          todayUsage: 0,
-        });
-      }
-    }, { onlyOnce: true });
+    onValue(
+      userRef,
+      async (snapshot) => {
+        if (!snapshot.exists()) {
+          await set(userRef, {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            status: 'online',
+            lastSeen: null,
+            createdAt: Date.now(),
+            safetyMode: false,
+            dailyUsageLimit: 120,
+            todayUsage: 0,
+          });
+        }
+      },
+      { onlyOnce: true }
+    );
   };
 
   const logout = async () => {
+    const { auth, database } = getFirebaseServices();
+
     if (user) {
       // Set offline status before signing out
       const userStatusRef = ref(database, `users/${user.uid}/status`);
@@ -145,11 +178,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await set(userStatusRef, 'offline');
       await set(userLastSeenRef, serverTimestamp());
     }
+
     await signOut(auth);
   };
 
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
+
+    const { database } = getFirebaseServices();
     const userRef = ref(database, `users/${user.uid}`);
     await set(userRef, { ...userProfile, ...data });
   };
@@ -161,6 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userProfile,
         loading,
         isConfigured,
+        configError,
         signUp,
         signIn,
         signInWithGoogle,
